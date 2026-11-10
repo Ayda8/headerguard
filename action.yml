@@ -1,0 +1,36 @@
+name: headerguard
+description: Grade a website's HTTP security headers, cookies, TLS and CORS, and fail the build below a score.
+author: Aida Kabiri
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  url:
+    description: The URL to scan (only scan sites you own or may test)
+    required: true
+  fail-under:
+    description: Fail the step if the score (0-100) is below this number
+    required: false
+    default: '0'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '21'
+
+    - name: Build headerguard
+      shell: bash
+      run: mvn -B -ntp -q -DskipTests -f "$GITHUB_ACTION_PATH/pom.xml" package
+
+    # Inputs go through env vars, never straight into the script,
+    # so a crafted URL can't inject shell commands into the runner.
+    - name: Scan
+      shell: bash
+      env:
+        HG_URL: ${{ inputs.url }}
+        HG_FAIL_UNDER: ${{ inputs.fail-under }}
+      run: java -jar "$GITHUB_ACTION_PATH/target/headerguard.jar" "$HG_URL" --fail-under "$HG_FAIL_UNDER"
